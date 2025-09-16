@@ -132,6 +132,7 @@ class Base:
         interval_save=30,
         mic_index=MIC_INDEX,
         init=True,
+        save_waveplot=False,  
     ):
         """
         Parameters:
@@ -174,6 +175,35 @@ class Base:
         if save_wav or save_wav_all:
             save_fname = f"{save_dir}/{self.method_name}-sep-{str(self)}.wav"
             self.save_to_wav(self.separated_spec, save_fname=save_fname, shape="FTM")
+
+            if save_waveplot:
+                try:
+                    import soundfile as _sf
+                    import numpy as _np
+                    import matplotlib.pyplot as _plt
+                    wav_data, sr = _sf.read(save_fname)   # 期望形状: (T, N) 或 (T,)；具体由 save_to_wav 决定
+                    if wav_data.ndim == 1:
+                        wav_data = wav_data[:, None]      # (T,) -> (T, 1)
+                    T, N = wav_data.shape[0], wav_data.shape[1]
+                    t = _np.arange(T, dtype=float) / float(sr)
+
+                    fig_h = 1.8 * N + 0.8
+                    fig, axes = _plt.subplots(N, 1, figsize=(10, fig_h), sharex=True)
+                    if N == 1:
+                        axes = [axes]
+                    for n in range(N):
+                        axes[n].plot(t, wav_data[:, n])
+                        axes[n].set_ylabel(f"src {n}")
+                        axes[n].grid(True, alpha=0.3)
+                    axes[-1].set_xlabel("Time (s)")
+                    fig.suptitle(f"{self.method_name} waveform – {str(self)}", fontsize=10)
+                    _plt.tight_layout(rect=[0, 0, 1, 0.97])
+
+                    png_fname = save_fname.rsplit(".", 1)[0] + "-waveform.png"
+                    fig.savefig(png_fname, dpi=150)
+                    _plt.close(fig)
+                except Exception as e:
+                    print(f"[WARN] Save waveform plot failed: {e}")
 
         if save_param or save_param_all:
             save_fname = f"{save_dir}/{self.method_name}-param-{str(self)}.h5"
